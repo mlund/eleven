@@ -9,20 +9,12 @@
 extern crate alloc;
 extern crate mos_alloc;
 
-use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
-use eleven::memory::MemoryIterator;
+use eleven::parse::Label;
 use mos_hardware::mega65::libc::mega65_fast;
-use mos_hardware::mega65::{lpeek, lpoke, set_lower_case};
+use mos_hardware::mega65::{lpeek, set_lower_case};
 use ufmt_stdio::*;
-
-struct Label {
-    /// lb$ = label name
-    name: String,
-    /// ll$ = (post-processed line)
-    pp_line: u16,
-}
 
 /*fn print(s: String) {
     let cstr: Vec<u8> = Vec::with_capacity(s.len() + 1);
@@ -43,7 +35,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     let mut delete_line_flag: bool = false;
     let mut labels: Vec<Label> = Vec::with_capacity(200);
 
-    prepare_test_memory(&mut verbose);
+    eleven::memory::prepare_test_memory(&mut verbose);
 
     // ln%() = map_gen_line_to_orig_line[]
     let _map_gen_line_to_orig_line: [u16; 500] = [0; 500];
@@ -82,7 +74,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     //let mystring = String::from("test");
     //println!("{}", &mystring[..]);
 
-    let filename = get_filename(&mut verbose);
+    let filename = eleven::get_filename(&mut verbose);
 
     unsafe {
         mega65_fast();
@@ -121,19 +113,20 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
 
     //200
     while source_line_counter != _total_lines {
-        copy_data_to_current_line(&mut ca_addr, &mut current_line);
+        eleven::copy_data_to_current_line(&mut ca_addr, &mut current_line);
 
         println!("l{}: {}", source_line_counter, &current_line[..]);
 
         // 340
-        current_line = String::from(trim_left(&current_line[..], &WHITESPACE_CHARS[..]));
+        current_line = String::from(eleven::trim_left(&current_line[..], &WHITESPACE_CHARS[..]));
         println!("{}", &current_line[..]);
 
-        single_quote_comment_trim(&mut current_line);
+        eleven::single_quote_comment_trim(&mut current_line);
 
         //560-580
         if current_line.len() > 0 {
-            current_line = String::from(trim_right(&current_line[..], &WHITESPACE_CHARS[..]));
+            current_line =
+                String::from(eleven::trim_right(&current_line[..], &WHITESPACE_CHARS[..]));
             //println!("'{}'", &current_line[..]);
         }
 
@@ -152,7 +145,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
                 if (&current_line[..1]).eq(".") {
                     println!("dot!");
                     _next_line_flag = true;
-                    parse_label(
+                    eleven::parse::parse_label(
                         verbose,
                         &current_line,
                         pp_line,
@@ -166,171 +159,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
         // 750
         source_line_counter += 1;
     }
-
     0
-}
-
-fn single_quote_comment_trim(current_line: &mut String) {
-    //422
-    if current_line.find('\'').is_none() || current_line.find('"').is_none() {
-        return;
-    }
-    //423
-    //424
-    let mut quote_flag = false;
-    let mut cut_tail_idx = None;
-    //440
-    for (in_line_idx, c) in current_line.chars().enumerate() {
-        //let c = (*current_line).chars().nth(in_line_idx).unwrap();
-        match c {
-            '"' => quote_flag = !quote_flag,
-            '\'' => {
-                if !quote_flag {
-                    cut_tail_idx = Some(in_line_idx);
-                    break;
-                }
-            }
-            _ => (),
-        }
-    }
-    //540
-    if cut_tail_idx.is_some() {
-        *current_line = current_line[..cut_tail_idx.unwrap()].to_string();
-    }
-    //println!("'{}'", &(*current_line)[..]);
-}
-
-/// @todo: skip `current_line` as argument as it is zeroed
-fn copy_data_to_current_line(ca_addr: &mut u32, current_line: &mut String) {
-    *current_line = String::new();
-    //let mut idx: u8 = 0;
-    let line_length = lpeek(*ca_addr) as u32;
-    *ca_addr += 1;
-
-    (*ca_addr..*ca_addr + line_length)
-        .for_each(|address| (*current_line).push(lpeek(address) as char));
-
-    *ca_addr += line_length;
-
-    // while idx < line_length {
-    //     (*current_line).push(lpeek(*ca_addr) as char);
-    //     *ca_addr += 1;
-    //     idx += 1;
-    // }
-}
-
-/// Parse a single label and add it to the `labels` vector
-///
-/// ## Note
-///
-///   Original source code: 1500
-///
-/// ## Todo
-///
-/// return the label and let the caller add to `labels`.
-fn parse_label(
-    verbose: bool,
-    current_line: &str,
-    pp_line: u16,
-    delete_line_flag: &mut bool,
-    labels: &mut Vec<Label>,
-) {
-    if verbose {
-        println!("label {} at pp_line {}", current_line, pp_line);
-    }
-    *delete_line_flag = true;
-    (*labels).push(Label {
-        name: String::from(&((*current_line)[1..])),
-        pp_line: pp_line + 1,
-    });
-}
-
-fn trim_left<'a>(line: &'a str, trim_chars: &[u8]) -> &'a str {
-    let mut i = 0;
-    while i < line.len() && trim_chars.contains(&line.as_bytes()[i]) {
-        i += 1;
-    }
-    &line[i..]
-}
-
-fn trim_right<'a>(line: &'a str, trim_chars: &[u8]) -> &'a str {
-    let mut i = (line.len() - 1) as i16;
-
-    while i >= 0 && trim_chars.contains(&line.as_bytes()[i as usize]) {
-        i = i - 1;
-    }
-
-    &line[..((i + 1) as usize)]
-}
-
-fn prepare_test_memory(verbose: &mut bool) {
-    // turn on verbose flag
-    // (in memory doesn't work yet, as I'd have to put dummy info into 0x4ff00 to be parsed by get_filename()
-    // unsafe { lpoke(0x4ff07u32, 0x08u8); }
-
-    // so for now, just hardcode the flag
-    *verbose = true;
-
-    const DATA: [u8; 97] = [
-        0x08, 0x00, 0x0f, 0x23, 0x4f, 0x55, 0x54, 0x50, 0x55, 0x54, 0x20, 0x22, 0x48, 0x45, 0x4c,
-        0x4c, 0x4f, 0x22, 0x00, 0x0a, 0x23, 0x44, 0x45, 0x43, 0x4c, 0x41, 0x52, 0x45, 0x20, 0x58,
-        0x00, 0x05, 0x2e, 0x4d, 0x41, 0x49, 0x4e, 0x11, 0x20, 0x20, 0x46, 0x4f, 0x52, 0x20, 0x58,
-        0x20, 0x3d, 0x20, 0x30, 0x20, 0x54, 0x4f, 0x20, 0x31, 0x35, 0x0b, 0x20, 0x20, 0x20, 0x20,
-        0x50, 0x52, 0x49, 0x4e, 0x54, 0x20, 0x58, 0x1d, 0x20, 0x20, 0x4e, 0x45, 0x58, 0x54, 0x20,
-        0x58, 0x20, 0x20, 0x20, 0x27, 0x20, 0x54, 0x52, 0x41, 0x49, 0x4c, 0x49, 0x4e, 0x47, 0x20,
-        0x43, 0x4f, 0x4d, 0x4d, 0x45, 0x4e, 0x54,
-    ];
-
-    // functional style, yeah!
-    DATA.iter()
-        .copied()
-        .enumerate()
-        .for_each(|(offset, byte)| unsafe { lpoke(0x8010000u32 + offset as u32, byte) });
-}
-
-fn get_filename(verbose: &mut bool) -> String {
-    println!("get-filename");
-    let mut filename = String::new();
-    let mut addr: u32 = 0x4ff00;
-    // 7020 bank 4:ba=dec("ff00")
-    // 7030 if peek(ba+0)=asc("s") and peek(ba+1)=asc("k") thenbegin
-    const LETTER_S: u8 = 83;
-    const LETTER_K: u8 = 75;
-    if lpeek(addr) == LETTER_S && lpeek(addr + 1) == LETTER_K {
-        // 7040   vb=peek(dec("ff07"))and8
-        *verbose = lpeek(0x4ff07u32) & 8 == 8;
-        if *verbose {
-            println!("verbose");
-        }
-        // 7050   f$="":a=ba+16:dowhilepeek(a)<>0:f$=f$+chr$(peek(a)):a=a+1:loop:
-        addr += 16;
-        while lpeek(addr) != 0 {
-            filename.push(lpeek(addr) as char);
-            addr += 1;
-        }
-
-        // 7060   if peek(dec("ff07"))and1 thenreturn
-        if lpeek(0x4ff07u32) & 1 == 1 {
-            // this bit got referred to as an autoload bit?
-            // it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
-            return filename;
-        }
-
-        // 7070   print "filename? "+f$:print"{up}";
-        println!("FILENAME? {}", &filename[..]);
-        // 7080 bend
-    }
-
-    return filename;
-    // NOTE: not sure how to do 'input' in rust yet, so skipping this part...
-    // (maybe something in mega65's libc could do it?)
-
-    // 7090 input "filename";a$
-    // 7100 if a$="" thenprint "no filename set":end
-    // 7110 poke ba,asc("s"):poke ba+1,asc("k")
-    // 7120 forr=1to16:poke ba+8+r-1,asc(mid$(a$,r,1)):nextr
-    // 7130 f$=a$
-    // 7140 return
 }
 
 #[panic_handler]
