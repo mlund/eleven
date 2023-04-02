@@ -17,7 +17,7 @@ pub struct Label {
 /// ## Todo
 ///
 /// return the label and let the caller add to `labels`.
-pub fn parse_label(
+pub fn add_label(
     verbose: bool,
     current_line: &str,
     pp_line: u16,
@@ -28,8 +28,8 @@ pub fn parse_label(
         println!("label {} at pp_line {}", current_line, pp_line);
     }
     *delete_line_flag = true;
-    (*labels).push(Label {
-        name: String::from(&((*current_line)[1..])),
+    labels.push(Label {
+        name: current_line[1..].into(),
         pp_line: pp_line + 1,
     });
 }

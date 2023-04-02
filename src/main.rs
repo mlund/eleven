@@ -98,7 +98,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
 
     // TODO: 195 clr ti: rem keep start time for timing
     const CB_ADDR: u32 = 0x8010000;
-    let mut ca_addr: u32 = CB_ADDR;
+    let mut ca_addr = MemoryIterator::new(CB_ADDR);
 
     println!("PASS 1 ");
 
@@ -106,35 +106,26 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     // removing this one, as it's equivalent to sl/soure_line_counter
     //let mut current_line_index = 0;
     // tl = total_lines
-    let _total_lines = u16::from_le_bytes(
-        eleven::memory::MemoryIterator::new(CB_ADDR)
-            .take(2)
-            .collect::<Vec<u8>>()
-            .try_into()
-            .unwrap(),
-    );
-
-    ca_addr += 2;
+    // @todo Check endianess - here's is it `_le` = little.
+    let _total_lines = u16::from_le_bytes(ca_addr.take(2).collect::<Vec<u8>>().try_into().unwrap());
 
     pp_line = 0; // ln = index into li$ (current post-processed line)
 
     //200
     while source_line_counter != _total_lines {
-        eleven::copy_data_to_current_line(&mut ca_addr, &mut current_line);
+        current_line = eleven::read_line(&mut ca_addr);
 
-        println!("l{}: {}", source_line_counter, &current_line[..]);
+        println!("l{}: {}", source_line_counter, *current_line);
 
         // 340
-        current_line = String::from(eleven::trim_left(&current_line[..], &WHITESPACE_CHARS[..]));
-        println!("{}", &current_line[..]);
+        current_line = eleven::trim_left(&current_line[..], &WHITESPACE_CHARS[..]).into();
+        println!("{}", *current_line);
 
         eleven::single_quote_comment_trim(&mut current_line);
 
         //560-580
-        if current_line.len() > 0 {
-            current_line =
-                String::from(eleven::trim_right(&current_line[..], &WHITESPACE_CHARS[..]));
-            //println!("'{}'", &current_line[..]);
+        if !current_line.is_empty() {
+            current_line = eleven::trim_right(&current_line[..], &WHITESPACE_CHARS[..]).into();
         }
 
         //585
@@ -149,10 +140,10 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
                     &current_line[..]
                 );
                 // 600
-                if (&current_line[..1]).eq(".") {
+                if current_line.chars().nth(0).unwrap() == '.' {
                     println!("dot!");
                     _next_line_flag = true;
-                    eleven::parse::parse_label(
+                    eleven::parse::add_label(
                         verbose,
                         &current_line,
                         pp_line,

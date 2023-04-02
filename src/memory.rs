@@ -15,11 +15,12 @@ use mos_hardware::mega65::{lpeek, lpoke};
 /// }
 /// assert_eq!(mem.address, ADDRESS + 1 + 4);
 /// ~~~
+#[derive(Copy, Clone)]
 pub struct MemoryIterator {
     /// Current 28 bit address
-    address: u32,
+    pub address: u32,
     /// Current value at address; updated by `new()` or `next()`.
-    value: u8,
+    pub value: u8,
 }
 
 impl MemoryIterator {

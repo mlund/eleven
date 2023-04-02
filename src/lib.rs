@@ -268,22 +268,14 @@ pub fn single_quote_comment_trim(current_line: &mut String) {
 }
 
 /// @todo: skip `current_line` as argument as it is zeroed
-pub fn copy_data_to_current_line(ca_addr: &mut u32, current_line: &mut String) {
-    *current_line = String::new();
-    //let mut idx: u8 = 0;
-    let line_length = lpeek(*ca_addr) as u32;
-    *ca_addr += 1;
-
-    (*ca_addr..*ca_addr + line_length)
-        .for_each(|address| (*current_line).push(lpeek(address) as char));
-
-    *ca_addr += line_length;
-
-    // while idx < line_length {
-    //     (*current_line).push(lpeek(*ca_addr) as char);
-    //     *ca_addr += 1;
-    //     idx += 1;
-    // }
+pub fn read_line(ca_addr: &mut memory::MemoryIterator) -> String {
+    let line_length = ca_addr.value;
+    ca_addr.next();
+    let mut line = String::with_capacity(line_length as usize);
+    ca_addr
+        .take(line_length as usize)
+        .for_each(|byte| line.push(byte as char));
+    line
 }
 
 pub fn get_filename(verbose: &mut bool) -> String {
