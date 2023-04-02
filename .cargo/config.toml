@@ -1,5 +1,5 @@
 [build]
-target = "mos-c64-none"
+target = "mos-mega65-none"
 
 [target.mos-c64-none]
 runner = ["x64sc", "+confirmonexit"]

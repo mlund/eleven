@@ -1,7 +1,11 @@
 [package]
-name = "print10"
-version = "0.1.0"
+name = "eleven"
+version = "0.0.1"
 edition = "2021"
+
+[[bin]]
+name = "eleven"
+path = "src/main.rs"
 
 [profile.dev]
 opt-level = 2
