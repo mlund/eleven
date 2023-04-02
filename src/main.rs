@@ -75,13 +75,13 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     //let mystring = String::from("test");
     //println!("{}", &mystring[..]);
 
-    let filename = eleven::get_filename(&mut verbose);
+    let filename = eleven::get_filename(&mut verbose).unwrap();
 
     unsafe {
         mega65_fast();
     }
 
-    println!("{}", &filename[..]);
+    println!("{}", *filename);
 
     // ------------------- pass 1 ---------------
     // nl = next_line_flag
@@ -93,7 +93,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     // clean up temporary files
     // NOTE: sl/source_line_counter and rl/current_line_index serve the same purpose
     // so I will remove 'current_line_index'
-    let mut source_line_counter = 0; // sl
+    //let mut source_line_counter = 0; // sl
     let mut _post_proc_line_counter = 0; // ln
 
     // TODO: 195 clr ti: rem keep start time for timing
@@ -106,26 +106,27 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     // removing this one, as it's equivalent to sl/soure_line_counter
     //let mut current_line_index = 0;
     // tl = total_lines
+
     // @todo Check endianess - here's is it `_le` = little.
-    let _total_lines = u16::from_le_bytes(ca_addr.take(2).collect::<Vec<u8>>().try_into().unwrap());
+    let total_lines = u16::from_le_bytes(ca_addr.load_bytes(2).try_into().unwrap());
 
     pp_line = 0; // ln = index into li$ (current post-processed line)
 
     //200
-    while source_line_counter != _total_lines {
+    for line_number in 0..total_lines {
         current_line = eleven::read_line(&mut ca_addr);
 
-        println!("l{}: {}", source_line_counter, *current_line);
+        println!("l{}: {}", line_number, *current_line);
 
         // 340
-        current_line = eleven::trim_left(&current_line[..], &WHITESPACE_CHARS[..]).into();
+        current_line = eleven::trim_left(&current_line, &WHITESPACE_CHARS).into();
         println!("{}", *current_line);
 
         eleven::single_quote_comment_trim(&mut current_line);
 
         //560-580
         if !current_line.is_empty() {
-            current_line = eleven::trim_right(&current_line[..], &WHITESPACE_CHARS[..]).into();
+            current_line = eleven::trim_right(&current_line, &WHITESPACE_CHARS).into();
         }
 
         //585
@@ -135,9 +136,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
             if verbose {
                 println!(
                     ">> {} {} {}",
-                    _post_proc_line_counter,
-                    source_line_counter,
-                    &current_line[..]
+                    _post_proc_line_counter, line_number, *current_line
                 );
                 // 600
                 if current_line.chars().nth(0).unwrap() == '.' {
@@ -155,7 +154,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
         }
 
         // 750
-        source_line_counter += 1;
+        //source_line_counter += 1;
     }
     0
 }

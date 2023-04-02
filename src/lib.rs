@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(iter_advance_by)]
 
 extern crate alloc;
 extern crate mos_alloc;
@@ -8,6 +9,7 @@ pub mod parse;
 
 use alloc::string::String;
 use alloc::string::ToString;
+use alloc::vec::Vec;
 use mos_hardware::mega65::lpeek;
 use ufmt_stdio::*;
 
@@ -269,49 +271,48 @@ pub fn single_quote_comment_trim(current_line: &mut String) {
 
 /// @todo: skip `current_line` as argument as it is zeroed
 pub fn read_line(ca_addr: &mut memory::MemoryIterator) -> String {
-    let line_length = ca_addr.value;
-    ca_addr.next();
-    let mut line = String::with_capacity(line_length as usize);
+    let line_length = ca_addr.next().unwrap() as usize;
+    let mut line = String::with_capacity(line_length);
     ca_addr
-        .take(line_length as usize)
+        .take(line_length)
         .for_each(|byte| line.push(byte as char));
     line
 }
 
-pub fn get_filename(verbose: &mut bool) -> String {
+pub fn get_filename(verbose: &mut bool) -> Option<String> {
     println!("get-filename");
     let mut filename = String::new();
-    let mut addr: u32 = 0x4ff00;
+    //et mut addr: u32 = 0x4ff00;
     // 7020 bank 4:ba=dec("ff00")
     // 7030 if peek(ba+0)=asc("s") and peek(ba+1)=asc("k") thenbegin
+    let mut addr = memory::MemoryIterator::new(0x4ff00);
     const LETTER_S: u8 = 83;
     const LETTER_K: u8 = 75;
-    if lpeek(addr) == LETTER_S && lpeek(addr + 1) == LETTER_K {
-        // 7040   vb=peek(dec("ff07"))and8
-        *verbose = lpeek(0x4ff07u32) & 8 == 8;
-        if *verbose {
-            println!("verbose");
-        }
-        // 7050   f$="":a=ba+16:dowhilepeek(a)<>0:f$=f$+chr$(peek(a)):a=a+1:loop:
-        addr += 16;
-        while lpeek(addr) != 0 {
-            filename.push(lpeek(addr) as char);
-            addr += 1;
-        }
 
-        // 7060   if peek(dec("ff07"))and1 thenreturn
-        if lpeek(0x4ff07u32) & 1 == 1 {
-            // this bit got referred to as an autoload bit?
-            // it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
-            return filename;
-        }
+    if addr.load_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
+        return None;
+    }
+    // 7040   vb=peek(dec("ff07"))and8
+    *verbose = lpeek(0x4ff07u32) & 8 == 8;
+    if *verbose {
+        println!("verbose");
+    }
+    // 7050   f$="":a=ba+16:dowhilepeek(a)<>0:f$=f$+chr$(peek(a)):a=a+1:loop:
+    addr.advance_by(16).unwrap();
+    addr.take_while(|byte| *byte != 0)
+        .for_each(|byte| filename.push(byte as char));
 
-        // 7070   print "filename? "+f$:print"{up}";
-        println!("FILENAME? {}", &filename[..]);
-        // 7080 bend
+    // 7060   if peek(dec("ff07"))and1 thenreturn
+    if lpeek(0x4ff07u32) & 1 == 1 {
+        // this bit got referred to as an autoload bit?
+        // it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
+        return Some(filename);
     }
 
-    return filename;
+    // 7070   print "filename? "+f$:print"{up}";
+    println!("FILENAME? {}", *filename);
+    return None;
+    // 7080 bend
     // NOTE: not sure how to do 'input' in rust yet, so skipping this part...
     // (maybe something in mega65's libc could do it?)
 

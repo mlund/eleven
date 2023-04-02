@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use mos_hardware::mega65::{lpeek, lpoke};
 
 /// Never-ending iterator to lpeek into 28-bit memory
@@ -6,38 +7,34 @@ use mos_hardware::mega65::{lpeek, lpoke};
 /// ~~~
 /// const ADDRESS: u32 = 0x8010000;
 /// let mem = MemoryIterator::new(ADDRESS);
-/// assert_eq!(mem.address, ADDRESS);
 /// let byte: u8 = mem.next().unwrap();
-/// assert_eq!(mem.address, ADDRESS + 1);
-/// assert_eq!(mem.value, byte);
 /// for byte in mem.take(4) {
 ///     println!("{}", byte);
 /// }
-/// assert_eq!(mem.address, ADDRESS + 1 + 4);
 /// ~~~
 #[derive(Copy, Clone)]
 pub struct MemoryIterator {
-    /// Current 28 bit address
-    pub address: u32,
-    /// Current value at address; updated by `new()` or `next()`.
-    pub value: u8,
+    /// Latest 28 bit address
+    address: u32,
 }
 
 impl MemoryIterator {
     pub fn new(address: u32) -> Self {
-        Self {
-            address: address,
-            value: lpeek(address),
-        }
+        Self { address: address }
+    }
+
+    /// Load `len` number of bytes
+    pub fn load_bytes(&mut self, len: usize) -> Vec<u8> {
+        self.take(len).collect()
     }
 }
 
 impl Iterator for MemoryIterator {
     type Item = u8;
     fn next(&mut self) -> Option<Self::Item> {
+        let value = lpeek(self.address);
         self.address += 1;
-        self.value = lpeek(self.address);
-        Some(self.value)
+        Some(value)
     }
 }
 
