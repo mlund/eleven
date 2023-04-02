@@ -11,6 +11,7 @@ extern crate mos_alloc;
 
 use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
+use eleven::memory::MemoryIterator;
 use eleven::parse::Label;
 use mos_hardware::mega65::libc::mega65_fast;
 use mos_hardware::mega65::{lpeek, set_lower_case};
@@ -105,7 +106,13 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     // removing this one, as it's equivalent to sl/soure_line_counter
     //let mut current_line_index = 0;
     // tl = total_lines
-    let mut _total_lines: u16 = lpeek(ca_addr) as u16 + 256 * lpeek(ca_addr + 1) as u16;
+    let _total_lines = u16::from_le_bytes(
+        eleven::memory::MemoryIterator::new(CB_ADDR)
+            .take(2)
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap(),
+    );
 
     ca_addr += 2;
 

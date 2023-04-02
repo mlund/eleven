@@ -6,20 +6,15 @@ extern crate mos_alloc;
 pub mod memory;
 pub mod parse;
 
-use crate::memory::MemoryIterator;
+use alloc::string::String;
 use alloc::string::ToString;
-use alloc::{string::String, vec::Vec};
-use core::panic::PanicInfo;
-use mos_hardware::mega65::libc::mega65_fast;
-use mos_hardware::mega65::{lpeek, lpoke, set_lower_case};
+use mos_hardware::mega65::lpeek;
 use ufmt_stdio::*;
 
 pub const RVS_ON: &str = "\x12";
 pub const RVS_OFF: &str = "\u{0092}";
-/// pf$ = type_suffix
 pub const TYPE_SUFFIX: [&str; 4] = ["", "%", "$", "&"];
 
-/// as at writing, rust doesn't allow for-loops in compile-time evaluation, hence the while-loop
 pub const BIN_CONV: [u16; 16] = {
     let mut arr = [0; 16];
     arr[0] = 1;

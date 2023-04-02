@@ -3,9 +3,9 @@ use ufmt_stdio::*;
 
 pub struct Label {
     /// lb$ = label name
-    name: String,
+    pub name: String,
     /// ll$ = (post-processed line)
-    pp_line: u16,
+    pub pp_line: u16,
 }
 
 /// Parse a single label and add it to the `labels` vector
