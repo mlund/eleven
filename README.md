@@ -6,12 +6,9 @@ Template for projects using the mos-hardware crate.
 
 ## Getting started
 
-The project requires [rust-mos](https://github.com/mrk-its/rust-mos) and
-is setup to build for C64 by default.
+The project requires [rust-mos](https://github.com/mrk-its/rust-mos).
 A docker image of rust-mos is [available](https://hub.docker.com/r/mrkits/rust-mos) if you
 do not fancy compiling LLVM.
-If you want to start a new project which uses `mos-hardware`, there's a
-[Github Template](https://github.com/mlund/mos-hardware-template).
 
 ### Docker and Visual Studio Code
 
