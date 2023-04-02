@@ -12,270 +12,16 @@ extern crate mos_alloc;
 use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
-use mos_hardware::mega65::lpeek;
-use mos_hardware::mega65::set_lower_case;
-//use mos_hardware::mega65::libc::cputs;
+use eleven::memory::MemoryIterator;
 use mos_hardware::mega65::libc::mega65_fast;
-use mos_hardware::mega65::lpoke;
-
+use mos_hardware::mega65::{lpeek, lpoke, set_lower_case};
 use ufmt_stdio::*;
-
-const RVS_ON: &str = "\x12";
-const RVS_OFF: &str = "\u{0092}";
-/// pf$ = type_suffix
-const _TYPE_SUFFIX: [&str; 4] = ["", "%", "$", "&"];
-
-/// as at writing, rust doesn't allow for-loops in compile-time evaluation, hence the while-loop
-const _BIN_CONV: [u16; 16] = {
-    let mut arr = [0; 16];
-    arr[0] = 1;
-    let mut i = 1;
-    while i < 16 {
-        arr[i] = arr[i - 1] * 2;
-        i += 1;
-    }
-    arr
-};
-
-// rw$
-const _TOKENS: [&str; 190] = [
-    "print",
-    "input",
-    "if",
-    "then",
-    "else",
-    "do",
-    "loop",
-    "while",
-    "until",
-    "gosub",
-    "goto",
-    "open",
-    "close",
-    "dopen",
-    "dclose",
-    "for",
-    "next",
-    "getkey",
-    "hex$",
-    "dim",
-    "peek",
-    "poke",
-    "wait",
-    "dec",
-    "chr$",
-    "asc",
-    "sgn",
-    "sqr",
-    "graphic",
-    "clr",
-    "screen",
-    "def",
-    "begin",
-    "bend",
-    "len",
-    "mid$",
-    "right$",
-    "left$",
-    "instr",
-    "for",
-    "next",
-    "step",
-    "trap",
-    "border",
-    "and",
-    "foreground",
-    "background",
-    "set",
-    "abs",
-    "sin",
-    "cos",
-    "tan",
-    "log",
-    "fre",
-    "cursor",
-    "pixel",
-    "window",
-    "rwindow",
-    "line",
-    "box",
-    "circle",
-    "ellipse",
-    "palette",
-    "restore",
-    "data",
-    "err$",
-    "er",
-    "el",
-    "cursor",
-    "on",
-    "off",
-    "val",
-    "scratch",
-    "return",
-    "rnd",
-    "stop",
-    "bank",
-    "ti",
-    "do",
-    "or",
-    "st",
-    "if",
-    "el",
-    "er",
-    "on",
-    "to",
-    "pen",
-    "get",
-    "end",
-    "int",
-    "not",
-    "ds",
-    "run",
-    "using",
-    "append",
-    "atn",
-    "auto",
-    "backup",
-    "bload",
-    "boot",
-    "bsave",
-    "bump",
-    "bverify",
-    "catalog",
-    "change",
-    "char",
-    "cmd",
-    "collision",
-    "color",
-    "concat",
-    "cont",
-    "copy",
-    "wpoke",
-    "wpeek",
-    "setbit",
-    "dclear",
-    "deffn",
-    "delete",
-    "fn",
-    "dir",
-    "disk",
-    "dload",
-    "dma",
-    "dmode",
-    "dpat",
-    "dsave",
-    "dverify",
-    "edma",
-    "envelope",
-    "erase",
-    "exit",
-    "exp",
-    "fast",
-    "filter",
-    "find",
-    "go64",
-    "header",
-    "help",
-    "highlight",
-    "joy",
-    "list",
-    "load",
-    "locate",
-    "lpen",
-    "mod",
-    "monitor",
-    "mouse",
-    "movspr",
-    "new",
-    "paint",
-    "play",
-    "pointer",
-    "polygon",
-    "pos",
-    "pot",
-    "pudef",
-    "rclr",
-    "rdot",
-    "read",
-    "record",
-    "rem",
-    "rename",
-    "resume",
-    "rgraphic",
-    "rmouse",
-    "rplay",
-    "rreg",
-    "rspcolor",
-    "rsppos",
-    "rsprite",
-    "save",
-    "scnclr",
-    "sleep",
-    "slow",
-    "sound",
-    "spc",
-    "sprcolor",
-    "sprite",
-    "sprsav",
-    "sys",
-    "tab",
-    "tempo",
-    "troff",
-    "tron",
-    "type",
-    "usr",
-    "verify",
-    "vol",
-    "xor",
-    "key",
-];
 
 struct Label {
     /// lb$ = label name
     name: String,
     /// ll$ = (post-processed line)
     pp_line: u16,
-}
-
-/// Never-ending iterator to lpeek into memory
-///
-/// # Examples
-/// ~~~
-/// const ADDRESS: u32 = 0x8010000;
-/// let mem = MemoryIterator::new(ADDRESS);
-/// assert_eq!(mem.address, ADDRESS);
-/// let byte: u8 = mem.next().unwrap();
-/// assert_eq!(mem.address, ADDRESS + 1);
-/// assert_eq!(mem.value, byte);
-/// for byte in mem.take(4) {
-///     println!("{}", byte);
-/// }
-/// assert_eq!(mem.address, ADDRESS + 1 + 4);
-/// ~~~
-struct MemoryIterator {
-    /// Current 28 bit address
-    address: u32,
-    /// Current value at address; updated by `new()` or `next()`.
-    value: u8,
-}
-
-impl MemoryIterator {
-    pub fn new(address: u32) -> Self {
-        Self {
-            address: address,
-            value: lpeek(address),
-        }
-    }
-}
-
-impl Iterator for MemoryIterator {
-    type Item = u8;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.address += 1;
-        self.value = lpeek(self.address);
-        Some(self.value)
-    }
 }
 
 /*fn print(s: String) {
@@ -310,7 +56,11 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     let _processed_lines: Vec<String> = Vec::with_capacity(200);
 
     set_lower_case();
-    println!("{}eleven PREPROCESSOR V0.4.7{}", RVS_ON, RVS_OFF);
+    println!(
+        "{}eleven PREPROCESSOR V0.4.7{}",
+        eleven::RVS_ON,
+        eleven::RVS_OFF
+    );
 
     //unsafe { cputs("hello".as_ptr()); }
     println!();
