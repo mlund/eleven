@@ -78,7 +78,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
 
     let filename = eleven::get_filename().unwrap();
 
-    let _autoload = eleven::autoload();
+    let _autoload = eleven::auto_load();
     verbose = eleven::is_verbose();
 
     unsafe {

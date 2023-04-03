@@ -11,9 +11,9 @@ pub mod parse;
 use alloc::string::String;
 use mos_hardware::mega65::lpeek;
 
-pub const STATUS_ADDR: u32 = 0x4ff07;
 pub const RVS_ON: &str = "\x12";
 pub const RVS_OFF: &str = "\u{0092}";
+pub const STATUS_ADDR: u32 = 0x4ff07;
 pub const TYPE_SUFFIX: [&str; 4] = ["", "%", "$", "&"];
 
 // This is evaluated at compile time!
@@ -221,26 +221,32 @@ pub const TOKENS: [&str; 190] = [
     "key",
 ];
 
-pub fn read_line(ca_addr: &mut memory::MemoryIterator) -> String {
-    let line_length = ca_addr.next().unwrap() as usize;
-    ca_addr
-        .take(line_length)
+pub fn read_line(address: &mut memory::MemoryIterator) -> String {
+    let line_len = address.next().unwrap() as usize;
+    address
+        .take(line_len)
         .map(|byte| char::from(byte))
         .collect::<String>()
 }
 
 /// Read filename from memory
+///
+/// # Todo
+///
+/// Couldn't we just use `!= "SK"`?
+/// Check with `assert!([ASCII_S, ASCII_K] == "SK" );`
 pub fn get_filename() -> Option<String> {
-    const LETTER_S: u8 = 83;
-    const LETTER_K: u8 = 75;
-    let mut mem = memory::MemoryIterator::new(0x4ff00);
+    const ASCII_S: u8 = 83;
+    const ASCII_K: u8 = 75;
+    const DATA_ADDR: u32 = 0x4ff00;
+    let mut address = memory::MemoryIterator::new(DATA_ADDR);
 
-    if mem.peek_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
+    if address.peek_chunk(2).as_slice() != [ASCII_S, ASCII_K] {
         return None;
     }
-    mem.advance_by(16).unwrap();
+    address.advance_by(16).unwrap();
 
-    let filename: String = mem
+    let filename: String = address
         .take_while(|byte| *byte != 0)
         .map(|byte| char::from(byte))
         .collect();
@@ -255,7 +261,7 @@ pub fn is_verbose() -> bool {
     lpeek(STATUS_ADDR) & 8 == 8
 }
 
-/// Determine if autoload should be done
+/// Determines if auto load should be performed
 ///
 /// # Notes
 ///
@@ -274,6 +280,6 @@ pub fn is_verbose() -> bool {
 /// 7130 f$=a$
 /// 7140 return
 /// ~~~
-pub fn autoload() -> bool {
+pub fn auto_load() -> bool {
     lpeek(STATUS_ADDR) & 1 == 1
 }
