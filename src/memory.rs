@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use mos_hardware::mega65::{lcopy, lpeek, lpoke};
+use mos_hardware::mega65::{lcopy, lpeek};
 
 /// Never-ending iterator to lpeek into 28-bit memory
 ///

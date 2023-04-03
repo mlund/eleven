@@ -9,15 +9,14 @@ pub mod memory;
 pub mod parse;
 
 use alloc::string::String;
-use alloc::string::ToString;
-use alloc::vec::Vec;
 use mos_hardware::mega65::lpeek;
-use ufmt_stdio::*;
 
+pub const STATUS_ADDR: u32 = 0x4ff07;
 pub const RVS_ON: &str = "\x12";
 pub const RVS_OFF: &str = "\u{0092}";
 pub const TYPE_SUFFIX: [&str; 4] = ["", "%", "$", "&"];
 
+// This is evaluated at compile time!
 pub const BIN_CONV: [u16; 16] = {
     let mut arr = [0; 16];
     arr[0] = 1;
@@ -222,105 +221,59 @@ pub const TOKENS: [&str; 190] = [
     "key",
 ];
 
-pub fn trim_left<'a>(line: &'a str, trim_chars: &[u8]) -> &'a str {
-    let mut i = 0;
-    while i < line.len() && trim_chars.contains(&line.as_bytes()[i]) {
-        i += 1;
-    }
-    &line[i..]
-}
-
-pub fn trim_right<'a>(line: &'a str, trim_chars: &[u8]) -> &'a str {
-    let mut i = (line.len() - 1) as i16;
-
-    while i >= 0 && trim_chars.contains(&line.as_bytes()[i as usize]) {
-        i = i - 1;
-    }
-
-    &line[..((i + 1) as usize)]
-}
-
-pub fn single_quote_comment_trim(current_line: &mut String) {
-    //422
-    if current_line.find('\'').is_none() || current_line.find('"').is_none() {
-        return;
-    }
-    //423
-    //424
-    let mut quote_flag = false;
-    let mut cut_tail_idx = None;
-    //440
-    for (in_line_idx, c) in current_line.chars().enumerate() {
-        //let c = (*current_line).chars().nth(in_line_idx).unwrap();
-        match c {
-            '"' => quote_flag = !quote_flag,
-            '\'' => {
-                if !quote_flag {
-                    cut_tail_idx = Some(in_line_idx);
-                    break;
-                }
-            }
-            _ => (),
-        }
-    }
-    //540
-    if cut_tail_idx.is_some() {
-        *current_line = current_line[..cut_tail_idx.unwrap()].to_string();
-    }
-    //println!("'{}'", &(*current_line)[..]);
-}
-
-/// @todo: skip `current_line` as argument as it is zeroed
 pub fn read_line(ca_addr: &mut memory::MemoryIterator) -> String {
     let line_length = ca_addr.next().unwrap() as usize;
-    let mut line = String::with_capacity(line_length);
     ca_addr
         .take(line_length)
-        .for_each(|byte| line.push(byte as char));
-    line
+        .map(|byte| char::from(byte))
+        .collect::<String>()
 }
 
-pub fn get_filename(verbose: &mut bool) -> Option<String> {
-    println!("get-filename");
-    let mut filename = String::new();
-    //et mut addr: u32 = 0x4ff00;
-    // 7020 bank 4:ba=dec("ff00")
-    // 7030 if peek(ba+0)=asc("s") and peek(ba+1)=asc("k") thenbegin
-    let mut addr = memory::MemoryIterator::new(0x4ff00);
+/// Read filename from memory
+pub fn get_filename() -> Option<String> {
     const LETTER_S: u8 = 83;
     const LETTER_K: u8 = 75;
+    let mut mem = memory::MemoryIterator::new(0x4ff00);
 
-    if addr.peek_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
+    if mem.peek_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
         return None;
     }
-    // 7040   vb=peek(dec("ff07"))and8
-    *verbose = lpeek(0x4ff07u32) & 8 == 8;
-    if *verbose {
-        println!("verbose");
-    }
-    // 7050   f$="":a=ba+16:dowhilepeek(a)<>0:f$=f$+chr$(peek(a)):a=a+1:loop:
-    addr.advance_by(16).unwrap();
-    addr.take_while(|byte| *byte != 0)
-        .for_each(|byte| filename.push(byte as char));
+    mem.advance_by(16).unwrap();
 
-    // 7060   if peek(dec("ff07"))and1 thenreturn
-    if lpeek(0x4ff07u32) & 1 == 1 {
-        // this bit got referred to as an autoload bit?
-        // it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
-        return Some(filename);
-    }
+    let filename: String = mem
+        .take_while(|byte| *byte != 0)
+        .map(|byte| char::from(byte))
+        .collect();
 
-    // 7070   print "filename? "+f$:print"{up}";
-    println!("FILENAME? {}", *filename);
-    return None;
-    // 7080 bend
-    // NOTE: not sure how to do 'input' in rust yet, so skipping this part...
-    // (maybe something in mega65's libc could do it?)
+    Some(filename)
+}
 
-    // 7090 input "filename";a$
-    // 7100 if a$="" thenprint "no filename set":end
-    // 7110 poke ba,asc("s"):poke ba+1,asc("k")
-    // 7120 forr=1to16:poke ba+8+r-1,asc(mid$(a$,r,1)):nextr
-    // 7130 f$=a$
-    // 7140 return
+/// Check status register if we should use verbose output
+///
+/// - BASIC: `7040 vb=peek(dec("ff07"))and8`
+pub fn is_verbose() -> bool {
+    lpeek(STATUS_ADDR) & 8 == 8
+}
+
+/// Determine if autoload should be done
+///
+/// # Notes
+///
+/// - BASIC: `7060 if peek(dec("ff07"))and 1 then return`
+/// - this bit got referred to as an autoload bit?
+/// - it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
+/// ~~~
+/// 7070   print "filename? "+f$:print"{up}";
+/// 7080 bend
+/// // NOTE: not sure how to do 'input' in rust yet, so skipping this part...
+/// // (maybe something in mega65's libc could do it?)
+/// 7090 input "filename";a$
+/// 7100 if a$="" thenprint "no filename set":end
+/// 7110 poke ba,asc("s"):poke ba+1,asc("k")
+/// 7120 forr=1to16:poke ba+8+r-1,asc(mid$(a$,r,1)):nextr
+/// 7130 f$=a$
+/// 7140 return
+/// ~~~
+pub fn autoload() -> bool {
+    lpeek(STATUS_ADDR) & 1 == 1
 }

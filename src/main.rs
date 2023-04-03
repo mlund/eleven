@@ -12,9 +12,11 @@ extern crate mos_alloc;
 use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
 use eleven::memory::MemoryIterator;
-use eleven::parse::Label;
+use eleven::parse::{single_quote_comment_trim, trim_left, trim_right};
+use eleven::parse::{trim_left_white_space, trim_right_white_space, Label};
+
 use mos_hardware::mega65::libc::mega65_fast;
-use mos_hardware::mega65::{lpeek, set_lower_case};
+use mos_hardware::mega65::set_lower_case;
 use ufmt_stdio::*;
 
 /*fn print(s: String) {
@@ -75,7 +77,10 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     //let mystring = String::from("test");
     //println!("{}", &mystring[..]);
 
-    let filename = eleven::get_filename(&mut verbose).unwrap();
+    let filename = eleven::get_filename().unwrap();
+
+    let _autoload = eleven::autoload();
+    verbose = eleven::is_verbose();
 
     unsafe {
         mega65_fast();
@@ -88,7 +93,6 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     let mut _next_line_flag = false;
 
     // wh$ = whitespace_chars
-    const WHITESPACE_CHARS: [u8; 4] = [32, 160, 29, 9]; // space, shift+space, right, tab
 
     // clean up temporary files
     // NOTE: sl/source_line_counter and rl/current_line_index serve the same purpose
@@ -119,18 +123,18 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
         println!("l{}: {}", line_number, *current_line);
 
         // 340
-        current_line = eleven::trim_left(&current_line, &WHITESPACE_CHARS).into();
+        current_line = trim_left_white_space(&current_line).into();
         println!("{}", *current_line);
 
-        eleven::single_quote_comment_trim(&mut current_line);
+        single_quote_comment_trim(&mut current_line);
 
         //560-580
         if !current_line.is_empty() {
-            current_line = eleven::trim_right(&current_line, &WHITESPACE_CHARS).into();
+            current_line = trim_right_white_space(&current_line).into();
         }
 
         //585
-        if current_line.len() > 0 {
+        if !current_line.is_empty() {
             // dl = delete_line_flag
             delete_line_flag = false;
             if verbose {
