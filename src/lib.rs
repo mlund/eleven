@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(iter_advance_by)]
+#![feature(iter_next_chunk)]
 
 extern crate alloc;
 extern crate mos_alloc;
@@ -289,7 +290,7 @@ pub fn get_filename(verbose: &mut bool) -> Option<String> {
     const LETTER_S: u8 = 83;
     const LETTER_K: u8 = 75;
 
-    if addr.load_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
+    if addr.peek_bytes(2).as_slice() != [LETTER_S, LETTER_K] {
         return None;
     }
     // 7040   vb=peek(dec("ff07"))and8

@@ -107,13 +107,13 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     //let mut current_line_index = 0;
     // tl = total_lines
 
-    // @todo Check endianess - here's is it `_le` = little.
-    let total_lines = u16::from_le_bytes(ca_addr.load_bytes(2).try_into().unwrap());
+    // @todo Check endianess...
+    let num_lines = u16::from_le_bytes([ca_addr.next().unwrap(), ca_addr.next().unwrap()]);
 
     pp_line = 0; // ln = index into li$ (current post-processed line)
 
     //200
-    for line_number in 0..total_lines {
+    for line_number in 0..num_lines {
         current_line = eleven::read_line(&mut ca_addr);
 
         println!("l{}: {}", line_number, *current_line);

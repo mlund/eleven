@@ -1,18 +1,19 @@
 use alloc::vec::Vec;
-use mos_hardware::mega65::{lpeek, lpoke};
+use mos_hardware::mega65::{lcopy, lpeek, lpoke};
 
 /// Never-ending iterator to lpeek into 28-bit memory
 ///
 /// # Examples
 /// ~~~
 /// const ADDRESS: u32 = 0x8010000;
-/// let mem = MemoryIterator::new(ADDRESS);
-/// let byte: u8 = mem.next().unwrap();
+/// let mut mem = MemoryIterator::new(ADDRESS);
+/// let single_byte: u8 = mem.next().unwrap();
+/// let byte_vector = mem.peek_bytes(10);
 /// for byte in mem.take(4) {
 ///     println!("{}", byte);
 /// }
 /// ~~~
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct MemoryIterator {
     /// Latest 28 bit address
     address: u32,
@@ -23,9 +24,20 @@ impl MemoryIterator {
         Self { address: address }
     }
 
-    /// Load `len` number of bytes
-    pub fn load_bytes(&mut self, len: usize) -> Vec<u8> {
-        self.take(len).collect()
+    /// Get `len` bytes using DMA
+    ///
+    /// # Todo
+    ///
+    /// - Check that the DMA copy works as expected
+    pub fn peek_bytes(&mut self, len: usize) -> Vec<u8> {
+        //self.take(len).collect()
+        let mut dst = Vec::<u8>::with_capacity(len);
+        unsafe {
+            dst.set_len(len);
+            lcopy(self.address, dst.as_mut_slice().as_ptr() as u32, len as u16);
+        }
+        self.address += len as u32;
+        dst
     }
 }
 
@@ -35,6 +47,11 @@ impl Iterator for MemoryIterator {
         let value = lpeek(self.address);
         self.address += 1;
         Some(value)
+    }
+
+    fn advance_by(&mut self, n: usize) -> Result<(), usize> {
+        self.address += n as u32;
+        Ok(())
     }
 }
 
@@ -56,9 +73,13 @@ pub fn prepare_test_memory(verbose: &mut bool) {
         0x43, 0x4f, 0x4d, 0x4d, 0x45, 0x4e, 0x54,
     ];
 
+    unsafe {
+        lcopy(DATA.as_ptr() as u32, 0x8010000, DATA.len() as u16);
+    }
+
     // functional style, yeah!
-    DATA.iter()
-        .copied()
-        .enumerate()
-        .for_each(|(offset, byte)| unsafe { lpoke(0x8010000u32 + offset as u32, byte) });
+    // DATA.iter()
+    //     .copied()
+    //     .enumerate()
+    //     .for_each(|(offset, byte)| unsafe { lpoke(0x8010000u32 + offset as u32, byte) });
 }

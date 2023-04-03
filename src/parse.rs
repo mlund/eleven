@@ -29,7 +29,7 @@ pub fn add_label(
     }
     *delete_line_flag = true;
     labels.push(Label {
-        name: current_line[1..].into(),
+        name: current_line.into(),
         pp_line: pp_line + 1,
     });
 }
