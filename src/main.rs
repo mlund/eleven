@@ -13,10 +13,10 @@ use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
 use eleven::memory::MemoryIterator;
 use eleven::parse::Label;
-
-use mos_hardware::mega65::libc::mega65_fast;
-use mos_hardware::mega65::set_lower_case;
+use mos_hardware::mega65;
 use ufmt_stdio::*;
+
+const CB_ADDR: u32 = 0x8010000;
 
 /*fn print(s: String) {
     let cstr: Vec<u8> = Vec::with_capacity(s.len() + 1);
@@ -31,33 +31,35 @@ use ufmt_stdio::*;
 
 #[start]
 fn _main(_argc: isize, _argv: *const *const u8) -> isize {
-    let mut line = String::new();
     let mut verbose = false;
     let mut pp_line: u16 = 0;
     let mut delete_line_flag: bool = false;
     let mut labels: Vec<Label> = Vec::with_capacity(200);
 
-    eleven::memory::prepare_test_memory(&mut verbose);
+    mega65::speed_mode40();
+    mega65::set_lower_case();
 
-    // ln%() = map_gen_line_to_orig_line[]
-    let _map_gen_line_to_orig_line: [u16; 500] = [0; 500];
-
-    set_lower_case();
-    println!("testing TESTING 1, 2, 3...");
-
-    // li$() = processed_lines
-    // NOTE: Seems like rust chokes if this is too large?
-    let _processed_lines: Vec<String> = Vec::with_capacity(200);
-
-    set_lower_case();
     println!(
         "{}eleven PREPROCESSOR V0.4.7{}",
         eleven::RVS_ON,
         eleven::RVS_OFF
     );
 
-    //unsafe { cputs("hello".as_ptr()); }
-    println!();
+    eleven::memory::prepare_test_memory(&mut verbose);
+
+    let filename = eleven::get_filename().unwrap();
+    println!("{}", filename.as_str());
+
+    let _autoload = eleven::auto_load();
+    verbose = eleven::is_verbose();
+
+    // ln%() = map_gen_line_to_orig_line[]
+    let _map_gen_line_to_orig_line: [u16; 500] = [0; 500];
+
+    println!("testing TESTING 1, 2, 3...");
+
+    // Processed lines (`li`). Warning: Rust chokes if this is too large
+    let _processed_lines: Vec<String> = Vec::with_capacity(200);
 
     // tl$ = tl_string
     let mut _tl_string = String::new(); //String::from("                                                                                ");
@@ -76,22 +78,9 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     //let mystring = String::from("test");
     //println!("{}", &mystring[..]);
 
-    let filename = eleven::get_filename().unwrap();
-
-    let _autoload = eleven::auto_load();
-    verbose = eleven::is_verbose();
-
-    unsafe {
-        mega65_fast();
-    }
-
-    println!("{}", filename.as_str());
-
     // ------------------- pass 1 ---------------
     // nl = next_line_flag
     let mut _next_line_flag = false;
-
-    // wh$ = whitespace_chars
 
     // clean up temporary files
     // NOTE: sl/source_line_counter and rl/current_line_index serve the same purpose
@@ -100,27 +89,25 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
     let mut _post_proc_line_counter = 0; // ln
 
     // TODO: 195 clr ti: rem keep start time for timing
-    const CB_ADDR: u32 = 0x8010000;
-    let mut ca_addr = MemoryIterator::new(CB_ADDR);
-
-    println!("PASS 1 ");
 
     // rl = current_line_index (zero-indexed, increments by one)
     // removing this one, as it's equivalent to sl/soure_line_counter
     //let mut current_line_index = 0;
     // tl = total_lines
 
+    println!("PASS 1 ");
+
+    let mut ca_addr = MemoryIterator::new(CB_ADDR);
+
     // @todo Check endianess...
     let num_lines = u16::from_le_bytes([ca_addr.next().unwrap(), ca_addr.next().unwrap()]);
 
     pp_line = 0; // ln = index into li$ (current post-processed line)
 
-    //200
     for line_number in 0..num_lines {
-        line = eleven::read_line(&mut ca_addr);
+        let mut line = eleven::read_line(&mut ca_addr);
         line = eleven::parse::trim_line(&line).into();
 
-        //585
         if line.is_empty() {
             continue;
         }

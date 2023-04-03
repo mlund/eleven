@@ -1,7 +1,8 @@
 use alloc::{string::String, vec::Vec};
 use ufmt_stdio::*;
 
-const WHITESPACE_CHARS: [u8; 4] = [32, 160, 29, 9]; // space, shift+space, right, tab
+/// White-space chars: space, shift+space, right, tab
+const WHITESPACE_CHARS: [u8; 4] = [32, 160, 29, 9];
 
 /// Add brief description
 ///
