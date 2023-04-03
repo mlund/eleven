@@ -3,11 +3,14 @@ use mos_hardware::mega65::{lcopy, lpeek};
 
 /// Never-ending iterator to lpeek into 28-bit memory
 ///
+/// The address is automatically pushed forward with every read.
+///
 /// # Examples
 /// ~~~
 /// const ADDRESS: u32 = 0x8010000;
 /// let mut mem = MemoryIterator::new(ADDRESS);
 /// let single_byte: u8 = mem.next().unwrap();
+/// assert_eq!(mem.next_address(), ADDRESS + 1);
 /// let byte_vector = mem.peek_bytes(10);
 /// for byte in mem.take(4) {
 ///     println!("{}", byte);
@@ -24,19 +27,24 @@ impl MemoryIterator {
         Self { address: address }
     }
 
-    /// Get `len` bytes using DMA
+    /// Address to be read at the next access, e.g. with `next()`.
+    pub fn next_address(&self) -> u32 {
+        self.address
+    }
+
+    /// Peek `N` bytes using fast Direct Memory Access (DMA) copy
     ///
     /// # Todo
     ///
     /// - Check that the DMA copy works as expected
-    pub fn peek_bytes(&mut self, len: usize) -> Vec<u8> {
+    pub fn peek_bytes(&mut self, N: u16) -> Vec<u8> {
         //self.take(len).collect()
-        let mut dst = Vec::<u8>::with_capacity(len);
+        let mut dst = Vec::<u8>::with_capacity(N as usize);
         unsafe {
-            dst.set_len(len);
-            lcopy(self.address, dst.as_mut_slice().as_ptr() as u32, len as u16);
+            dst.set_len(N as usize);
+            lcopy(self.address, dst.as_mut_slice().as_ptr() as u32, N);
         }
-        self.address += len as u32;
+        self.address += N as u32;
         dst
     }
 }
@@ -55,11 +63,11 @@ impl Iterator for MemoryIterator {
     }
 }
 
+/// Fill memory with test data
 pub fn prepare_test_memory(verbose: &mut bool) {
     // turn on verbose flag
     // (in memory doesn't work yet, as I'd have to put dummy info into 0x4ff00 to be parsed by get_filename()
     // unsafe { lpoke(0x4ff07u32, 0x08u8); }
-
     // so for now, just hardcode the flag
     *verbose = true;
 
@@ -73,6 +81,7 @@ pub fn prepare_test_memory(verbose: &mut bool) {
         0x43, 0x4f, 0x4d, 0x4d, 0x45, 0x4e, 0x54,
     ];
 
+    // @todo does this actually work?
     unsafe {
         lcopy(DATA.as_ptr() as u32, 0x8010000, DATA.len() as u16);
     }

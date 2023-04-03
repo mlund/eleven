@@ -12,8 +12,7 @@ extern crate mos_alloc;
 use alloc::{string::String, vec::Vec};
 use core::panic::PanicInfo;
 use eleven::memory::MemoryIterator;
-use eleven::parse::{single_quote_comment_trim, trim_left, trim_right};
-use eleven::parse::{trim_left_white_space, trim_right_white_space, Label};
+use eleven::parse::Label;
 
 use mos_hardware::mega65::libc::mega65_fast;
 use mos_hardware::mega65::set_lower_case;
@@ -32,8 +31,8 @@ use ufmt_stdio::*;
 
 #[start]
 fn _main(_argc: isize, _argv: *const *const u8) -> isize {
-    let mut current_line = String::new();
-    let mut verbose = true;
+    let mut line = String::new();
+    let mut verbose = false;
     let mut pp_line: u16 = 0;
     let mut delete_line_flag: bool = false;
     let mut labels: Vec<Label> = Vec::with_capacity(200);
@@ -86,7 +85,7 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
         mega65_fast();
     }
 
-    println!("{}", *filename);
+    println!("{}", filename.as_str());
 
     // ------------------- pass 1 ---------------
     // nl = next_line_flag
@@ -118,43 +117,30 @@ fn _main(_argc: isize, _argv: *const *const u8) -> isize {
 
     //200
     for line_number in 0..num_lines {
-        current_line = eleven::read_line(&mut ca_addr);
-
-        println!("l{}: {}", line_number, *current_line);
-
-        // 340
-        current_line = trim_left_white_space(&current_line).into();
-        println!("{}", *current_line);
-
-        single_quote_comment_trim(&mut current_line);
-
-        //560-580
-        if !current_line.is_empty() {
-            current_line = trim_right_white_space(&current_line).into();
-        }
+        line = eleven::read_line(&mut ca_addr);
+        line = eleven::parse::trim_line(&line).into();
 
         //585
-        if !current_line.is_empty() {
-            // dl = delete_line_flag
-            delete_line_flag = false;
-            if verbose {
-                println!(
-                    ">> {} {} {}",
-                    _post_proc_line_counter, line_number, *current_line
-                );
-                // 600
-                if current_line.chars().nth(0).unwrap() == '.' {
-                    println!("dot!");
-                    _next_line_flag = true;
-                    eleven::parse::add_label(
-                        verbose,
-                        &current_line,
-                        pp_line,
-                        &mut delete_line_flag,
-                        &mut labels,
-                    );
-                }
-            }
+        if line.is_empty() {
+            continue;
+        }
+        println!("l{}: {}", line_number, line.as_str());
+
+        // dl = delete_line_flag
+        delete_line_flag = false;
+        if verbose {
+            println!(
+                ">> {} {} {}",
+                _post_proc_line_counter,
+                line_number,
+                line.as_str()
+            );
+        }
+        // 600
+        if line.starts_with('.') {
+            println!("dot!");
+            _next_line_flag = true;
+            eleven::parse::add_label(verbose, &line, pp_line, &mut delete_line_flag, &mut labels);
         }
 
         // 750

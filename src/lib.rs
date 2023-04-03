@@ -263,7 +263,7 @@ pub fn is_verbose() -> bool {
 /// - this bit got referred to as an autoload bit?
 /// - it gets set by '11.edit' in the gosub 7720 (save filename in mailbox ram)
 /// ~~~
-/// 7070   print "filename? "+f$:print"{up}";
+/// 7070 print "filename? "+f$:print"{up}";
 /// 7080 bend
 /// // NOTE: not sure how to do 'input' in rust yet, so skipping this part...
 /// // (maybe something in mega65's libc could do it?)
