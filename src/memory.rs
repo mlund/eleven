@@ -3,22 +3,26 @@ use mos_hardware::mega65::{lcopy, lpeek};
 
 /// Never-ending iterator to lpeek into 28-bit memory
 ///
-/// The address is automatically pushed forward with every read.
+/// The address is automatically pushed forward with every byte read.
 ///
 /// # Examples
 /// ~~~
 /// const ADDRESS: u32 = 0x8010000;
 /// let mut mem = MemoryIterator::new(ADDRESS);
 /// let single_byte: u8 = mem.next().unwrap();
-/// assert_eq!(mem.address, ADDRESS + 1);
-/// let byte_vector = mem.peek_chunk(10);
+/// let byte_vector: Vec<u8> = mem.get_chunk(10);
 /// for byte in mem.take(4) {
 ///     println!("{}", byte);
 /// }
+/// assert_eq!(mem.address, ADDRESS + 1 + 10 + 4);
 /// ~~~
+///
+/// # Todo
+///
+/// This should eventually be submitted to the `mos-hardware` crate.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct MemoryIterator {
-    /// Next address to be used
+    /// Next address
     pub address: u32,
 }
 
@@ -32,7 +36,7 @@ impl MemoryIterator {
     /// # Todo
     ///
     /// - Check that the DMA copy works as expected
-    pub fn peek_chunk(&mut self, n: u16) -> Vec<u8> {
+    pub fn get_chunk(&mut self, n: u16) -> Vec<u8> {
         //self.take(len).collect()
         let mut dst = Vec::<u8>::with_capacity(n as usize);
         unsafe {
@@ -83,7 +87,7 @@ pub fn prepare_test_memory(verbose: &mut bool) {
         lcopy(DATA.as_ptr() as u32, 0x8010000, DATA.len() as u16);
     }
 
-    // functional style, yeah!
+    // functional style, yeah! Can be deleted once `lcopy` has been confirmed.
     // DATA.iter()
     //     .copied()
     //     .enumerate()

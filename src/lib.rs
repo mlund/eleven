@@ -241,7 +241,7 @@ pub fn get_filename() -> Option<String> {
     const DATA_ADDR: u32 = 0x4ff00;
     let mut address = memory::MemoryIterator::new(DATA_ADDR);
 
-    if address.peek_chunk(2).as_slice() != [ASCII_S, ASCII_K] {
+    if address.get_chunk(2).as_slice() != [ASCII_S, ASCII_K] {
         return None;
     }
     address.advance_by(16).unwrap();
